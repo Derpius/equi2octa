@@ -61,10 +61,11 @@ int main(const int argc, const char* argv[])
 	}
 
 	// Canonicalise input
-	try {
-		input = std::filesystem::canonical(input);
-	} catch (const std::filesystem::filesystem_error& e) {
-		printf("Couldn't find input file:\n%s\n", e.what());
+	std::error_code err;
+	input = std::filesystem::canonical(input, err);
+
+	if (err) {
+		printf("Couldn't find input file:\n%s\n", err.message().c_str());
 		return -1;
 	}
 
@@ -83,12 +84,13 @@ int main(const int argc, const char* argv[])
 			return -1;
 		}
 
-		try {
-			output = std::filesystem::canonical(output.parent_path()) / output.filename();
-		} catch (const std::filesystem::filesystem_error& e) {
-			printf("Couldn't find output path:\n%s\n", e.what());
+		output = std::filesystem::canonical(output.parent_path(), err);
+		if (err) {
+			printf("Couldn't find output path:\n%s\n", err.message().c_str());
 			return -1;
 		}
+
+		output /= output.filename();
 	}
 
 	if (std::filesystem::exists(output)) {
@@ -130,6 +132,8 @@ int main(const int argc, const char* argv[])
 	};
 
 	float* pConverted = new float[resY * resY * channels];
+
+	#pragma omp parallel for collapse(2)
 	for (int y = 0; y < resY; y++) {
 		for (int x = 0; x < resY; x++) {
 			vec3 dir = OctahedralTexelToDir(vec2(static_cast<float>(x) / resY, static_cast<float>(y) / resY));
